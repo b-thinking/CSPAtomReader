@@ -56,3 +56,124 @@ Porque:
 - lxml no soporta XQuery (solo XPath / XSLT 1.0).
 - Los XML de la plataforma usan namespaces complejos (UBL + CODICE), y XQuery es muy útil para gestionarlos.
 - Puedes usar lxml para parseo básico, pero no para XQuery.
+
+
+# Pending: Optimize
+
+## Migrate to XQuery
+
+pasar de XPath a una única XQuery te da más flexibilidad, claridad y potencia (por ejemplo, puedes construir un XML con resultados, extraer campos o devolver JSON directamente).
+
+Vamos paso a paso, para que quede limpio y reutilizable.
+
+🧩 Tu XPath actual
+/a:feed/a:entry[
+  place:ContractFolderStatus/
+  place:LocatedContractingParty/
+  cac:Party/
+  cac:PartyIdentification/
+  cbc:ID[@schemeName='ID_PLATAFORMA'] = '{id_plataforma}'
+]
+
+
+Este XPath selecciona todas las <entry> cuyo cbc:ID dentro de cac:PartyIdentification
+tenga @schemeName="ID_PLATAFORMA" y un valor concreto.
+
+✅ XQuery equivalente “básico” (mismo resultado)
+declare default element namespace "http://www.w3.org/2005/Atom";
+declare namespace place = "urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonAggregateComponents-2";
+declare namespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+declare namespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+
+for $e in /feed/entry[
+  place:ContractFolderStatus/
+  place:LocatedContractingParty/
+  cac:Party/
+  cac:PartyIdentification/
+  cbc:ID[@schemeName='ID_PLATAFORMA'] = "{id_plataforma}"
+]
+return $e
+
+
+➡️ Esto devuelve todas las entradas completas (<entry>) que cumplan la condición.
+Funcionalmente es lo mismo que tu XPath, pero más expresivo.
+
+✅ XQuery enriquecido: devolver campos concretos
+
+Si en vez del nodo completo quieres un XML reducido, puedes construirlo con FLWOR:
+
+declare default element namespace "http://www.w3.org/2005/Atom";
+declare namespace place = "urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonAggregateComponents-2";
+declare namespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+declare namespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+
+<resultados>{
+  for $e in /feed/entry[
+    place:ContractFolderStatus/
+    place:LocatedContractingParty/
+    cac:Party/
+    cac:PartyIdentification/
+    cbc:ID[@schemeName='ID_PLATAFORMA'] = "{id_plataforma}"
+  ]
+  return
+    <entryResumen>
+      <id>{$e/id/text()}</id>
+      <title>{$e/title/text()}</title>
+      <updated>{$e/updated/text()}</updated>
+      <organo>{
+        $e/place:ContractFolderStatus/
+          place:LocatedContractingParty/
+          cac:Party/
+          cac:PartyIdentification/
+          cbc:ID[@schemeName='NIF']/text()
+      }</organo>
+    </entryResumen>
+}</resultados>
+
+
+Esto produce un XML limpio con solo la información que te interesa, por ejemplo:
+
+<resultados>
+  <entryResumen>
+    <id>https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/16245671</id>
+    <title>Servicio de analíticas…</title>
+    <updated>2024-12-31T14:48:52.402+01:00</updated>
+    <organo>G96236443</organo>
+  </entryResumen>
+  ...
+</resultados>
+
+✅ XQuery aún más potente (parametrizable)
+
+Si vas a ejecutarlo desde Python y quieres pasar el valor de forma segura,
+puedes definir una variable externa:
+
+declare variable $id_plataforma external;
+declare default element namespace "http://www.w3.org/2005/Atom";
+declare namespace place = "urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonAggregateComponents-2";
+declare namespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+declare namespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+
+for $e in /feed/entry[
+  place:ContractFolderStatus/
+  place:LocatedContractingParty/
+  cac:Party/
+  cac:PartyIdentification/
+  cbc:ID[@schemeName='ID_PLATAFORMA'] = $id_plataforma
+]
+return $e
+
+
+Y en Python:
+
+xq = proc.new_xquery_processor()
+xq.set_query(open("query.xq").read())
+xq.set_context(xdm_item=doc)
+xq.set_parameter("id_plataforma", proc.make_string_value("50179410029721"))
+result = xq.run_query_to_value()
+
+✅ En resumen
+Variante	Qué devuelve	Ideal para
+Básica	Nodos <entry> completos	Reemplazo directo de XPath
+Enriquecida (con <entryResumen> )	XML personalizado	Integración o exportación
+Parametrizable	Cualquier resultado	Ejecución desde Python
