@@ -13,7 +13,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-PYTHON_VERSION='3.14' # Set required python version
+PYTHON_VERSION='3.12' # Set required python version
 VIRTUAL_ENV="csp" # Set venv name
 PYTHON_VERSION_GREP="^$(echo $PYTHON_VERSION|sed 's/\./\\./g')\.\d*\$"
 

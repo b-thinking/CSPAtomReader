@@ -32,6 +32,10 @@
             Optional: at
 
 
+### CPV codes
+- [Catalan](https://datos.gob.es/es/catalogo/a09002970-listado-de-codigos-cpv)
+- [Europe](https://ted.europa.eu/en/simap/cpv)
+
 # Libraries
 
 Alternatives for using XQuery to read Atom files
