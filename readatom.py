@@ -55,8 +55,11 @@ class CspEntry:
     :param entry: Atom entry containing the contract
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, entry: etree.Element, id_plataforma: Optional[str] = None) -> None:
+        self.entry = entry
+        if id_plataforma is not None:
+            self._id_plataforma = id_plataforma
+
     # entry_xpath_processor = saxon_processor.new_xpath_processor()
     # entry_xpath_processor.declare_namespace("", NS)
     # entry_xpath_processor.declare_namespace("at", NS_AT)
@@ -66,11 +69,6 @@ class CspEntry:
     # entry_xpath_processor.declare_namespace("cbc-place-ext", NS_CBC_PLACE_EXT)
     # entry_xpath_processor.declare_namespace("cac-place-ext", NS_CAC_PLACE_EXT)
     
-    # def __init__(self, entry: PyXdmNode, id_plataforma: Optional[str] = None):
-    #     self.entry = entry
-    #     if id_plataforma is not None:
-    #         self._id_plataforma = id_plataforma
-
     # @property
     # def id_plataforma(self) -> Optional[str]:
     #     if not hasattr(self, "_id_plataforma"):
@@ -177,13 +175,13 @@ class CspDoc:
         """
         ret: list[CspEntry] = []
         for id_plataforma in id_plataforma_list:                
-            xpath = f"/feed/entry[cac-place-ext:ContractFolderStatus/cac-place-ext:LocatedContractingParty/cac:Party/cac:PartyIdentification/cbc:ID[@schemeName='ID_PLATAFORMA']='{id_plataforma}']"
+            xpath = f"/atom:feed/atom:entry[cac-place-ext:ContractFolderStatus/cac-place-ext:LocatedContractingParty/cac:Party/cac:PartyIdentification/cbc:ID[@schemeName='ID_PLATAFORMA']='{id_plataforma}']"
             #  and cac-place-ext:ContractFolderStatus/cac:ProcurementProject/cac:RequiredCommodityClassification/cbc:ItemClassificationCode='{cpv}'
 
 
-            found = self.doc.xpath(xpath)
+            found: list[etree.Element] = self.doc.xpath(xpath, namespaces=NAMESPACE_MAP)
             if found is not None:
-                # node: PyXdmNode
+                node: etree.Element
                 for node in found:
                     entry = CspEntry(node)
                     # logger.debug(f"Contractor Id: {entry.id_plataforma} Title: {entry.title} Total Amount {entry.total_amount:,.2f} - CPV: {entry.cpv}")
@@ -206,6 +204,9 @@ class CspDoc:
                     updated_after=self.updated_after
                 )
                 return next_doc
+            except ValueError as ve:
+                logger.debug(f"Next document is not valid: {e}")
+                return None
             except Exception as e:
                 logger.error(f"Error loading next document: {e}")
                 return None
@@ -242,11 +243,14 @@ class CspDoc:
     # Get link rel="next"
     # ------------------------------------------------------------------
     def _get_next_link(self) -> Optional[str]:
-        xpath = "/feed/link[@rel='next']/@href"
+        xpath = "/atom:feed/atom:link[@rel='next']/@href"
 
-        item_single = self.doc.xpath(xpath)
+        items = self.doc.xpath(xpath, namespaces=NAMESPACE_MAP)
+        if items is None or len(items) == 0:
+            return None
 
-        return item_single.string_value if item_single is not None else None
+        return items[0]
+
     
     def __str__(self):
         return self.doc.__str__()
@@ -277,14 +281,17 @@ if __name__ == "__main__":
     contractor_ids: list[str] = os.getenv("ENTRY_CONTRACTOR_IDS","").split(",")
     doc_updated_after: datetime = datetime.fromisoformat(os.getenv("DOC_UPDATED_AFTER",""))
 
-    atom_doc = CspDoc(file, file_location, prefix_url, prefix_path, doc_updated_after)
-    entries: list[CspEntry] = []
-    for doc in atom_doc:
-        logger.debug(f"Searching in file: {doc.file_name}")
-        # doc_entries: list[CspEntry] = doc.search_entry(contractor_ids)
-        # entries.extend(doc_entries)
+    try: 
+        atom_doc: CspDoc = CspDoc(file, file_location, prefix_url, prefix_path, doc_updated_after)
+        entries: list[CspEntry] = []
+        for doc in atom_doc:
+            logger.debug(f"Searching in file: {doc.file_name}")
+            doc_entries: list[CspEntry] = doc.search_entry(contractor_ids)
+            entries.extend(doc_entries)
 
-    logger.debug(f"Found {len(entries)} entries")
+        logger.debug(f"Found {len(entries)} entries")
+    except ValueError as ve:
+        logger.error(f"Error loading document {file}: {ve}")
 
 
 
