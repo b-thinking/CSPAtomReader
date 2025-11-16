@@ -19,10 +19,11 @@ from dotenv import load_dotenv
 import requests
 from urllib.parse import urlparse
 
-from lxml import etree
+# Doc: https://www.saxonica.com/saxon-c/documentation12/index.html#!api/saxon_c_python_api
+from saxonche import PySaxonProcessor, PyXdmNode, PyXdmValue
 
 
-NS_ATOM = "http://www.w3.org/2005/Atom" # Main namespace Atom
+NS = "http://www.w3.org/2005/Atom" # Main namespace Atom
 NS_AT = "http://purl.org/atompub/tombstones/1.0" # Namespace Atom Tombstones 1.0. IETF (RFC 6721)
 
 
@@ -38,68 +39,56 @@ NS_CAC = "urn:dgpe:names:draft:codice:schema:xsd:CommonAggregateComponents-2"
 NS_CBC_PLACE_EXT = "urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonBasicComponents-2"
 NS_CAC_PLACE_EXT = "urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonAggregateComponents-2"
 
-NAMESPACE_MAP = {
-    "atom": NS_ATOM, # Default namespace, implicit in tags with no namespace prefix
-    "at": NS_AT,
-    "ns7": NS_NS7,
-    "cbc": NS_CBC,
-    "cac": NS_CAC,
-    "cbc-place-ext": NS_CBC_PLACE_EXT,
-    "cac-place-ext": NS_CAC_PLACE_EXT
-}
 
-# saxon_processor = PySaxonProcessor(license=False)
+saxon_processor = PySaxonProcessor(license=False)
 
 class CspEntry:
     """
     :param entry: Atom entry containing the contract
     """
-
-    def __init__(self):
-        pass
-    # entry_xpath_processor = saxon_processor.new_xpath_processor()
-    # entry_xpath_processor.declare_namespace("", NS)
-    # entry_xpath_processor.declare_namespace("at", NS_AT)
-    # entry_xpath_processor.declare_namespace("ns7", NS_NS7)
-    # entry_xpath_processor.declare_namespace("cbc", NS_CBC)
-    # entry_xpath_processor.declare_namespace("cac", NS_CAC)
-    # entry_xpath_processor.declare_namespace("cbc-place-ext", NS_CBC_PLACE_EXT)
-    # entry_xpath_processor.declare_namespace("cac-place-ext", NS_CAC_PLACE_EXT)
+    entry_xpath_processor = saxon_processor.new_xpath_processor()
+    entry_xpath_processor.declare_namespace("", NS)
+    entry_xpath_processor.declare_namespace("at", NS_AT)
+    entry_xpath_processor.declare_namespace("ns7", NS_NS7)
+    entry_xpath_processor.declare_namespace("cbc", NS_CBC)
+    entry_xpath_processor.declare_namespace("cac", NS_CAC)
+    entry_xpath_processor.declare_namespace("cbc-place-ext", NS_CBC_PLACE_EXT)
+    entry_xpath_processor.declare_namespace("cac-place-ext", NS_CAC_PLACE_EXT)
     
-    # def __init__(self, entry: PyXdmNode, id_plataforma: Optional[str] = None):
-    #     self.entry = entry
-    #     if id_plataforma is not None:
-    #         self._id_plataforma = id_plataforma
+    def __init__(self, entry: PyXdmNode, id_plataforma: Optional[str] = None):
+        self.entry = entry
+        if id_plataforma is not None:
+            self._id_plataforma = id_plataforma
 
-    # @property
-    # def id_plataforma(self) -> Optional[str]:
-    #     if not hasattr(self, "_id_plataforma"):
-    #         CspEntry.entry_xpath_processor.set_context(xdm_item=self.entry)
-    #         self._id_plataforma: Optional[str] = CspEntry.entry_xpath_processor.evaluate_single("cac-place-ext:ContractFolderStatus/cac-place-ext:LocatedContractingParty/cac:Party/cac:PartyIdentification/cbc:ID[@schemeName='ID_PLATAFORMA']").string_value
-    #     return self._id_plataforma
+    @property
+    def id_plataforma(self) -> Optional[str]:
+        if not hasattr(self, "_id_plataforma"):
+            CspEntry.entry_xpath_processor.set_context(xdm_item=self.entry)
+            self._id_plataforma: Optional[str] = CspEntry.entry_xpath_processor.evaluate_single("cac-place-ext:ContractFolderStatus/cac-place-ext:LocatedContractingParty/cac:Party/cac:PartyIdentification/cbc:ID[@schemeName='ID_PLATAFORMA']").string_value
+        return self._id_plataforma
     
-    # @property
-    # def cpv(self) -> Optional[str]:
-    #     if not hasattr(self, "_cpv"):
-    #         CspEntry.entry_xpath_processor.set_context(xdm_item=self.entry)
-    #         self._cpv: Optional[str] = CspEntry.entry_xpath_processor.evaluate_single("cac-place-ext:ContractFolderStatus/cac:ProcurementProject/cac:RequiredCommodityClassification/cbc:ItemClassificationCode").string_value
-    #     return self._cpv
+    @property
+    def cpv(self) -> Optional[str]:
+        if not hasattr(self, "_cpv"):
+            CspEntry.entry_xpath_processor.set_context(xdm_item=self.entry)
+            self._cpv: Optional[str] = CspEntry.entry_xpath_processor.evaluate_single("cac-place-ext:ContractFolderStatus/cac:ProcurementProject/cac:RequiredCommodityClassification/cbc:ItemClassificationCode").string_value
+        return self._cpv
     
-    # # title: str = CspDoc.xpath_processor.evaluate_single("title").string_value
-    # # totalAmount = CspDoc.xpath_processor.evaluate_single("cac-place-ext:ContractFolderStatus/cac:ProcurementProject/cac:BudgetAmount/cbc:TotalAmount").typed_value.head.double_value
-    # @property
-    # def title(self) -> Optional[str]:
-    #     if not hasattr(self, "_cpv"):
-    #         CspEntry.entry_xpath_processor.set_context(xdm_item=self.entry)
-    #         self._title: Optional[str] = CspEntry.entry_xpath_processor.evaluate_single("title").string_value
-    #     return self._title
+    # title: str = CspDoc.xpath_processor.evaluate_single("title").string_value
+    # totalAmount = CspDoc.xpath_processor.evaluate_single("cac-place-ext:ContractFolderStatus/cac:ProcurementProject/cac:BudgetAmount/cbc:TotalAmount").typed_value.head.double_value
+    @property
+    def title(self) -> Optional[str]:
+        if not hasattr(self, "_cpv"):
+            CspEntry.entry_xpath_processor.set_context(xdm_item=self.entry)
+            self._title: Optional[str] = CspEntry.entry_xpath_processor.evaluate_single("title").string_value
+        return self._title
 
-    # @property
-    # def total_amount(self) -> Optional[str]:
-    #     if not hasattr(self, "_total_amount"):
-    #         CspEntry.entry_xpath_processor.set_context(xdm_item=self.entry)
-    #         self._total_amount: Optional[str] = CspEntry.entry_xpath_processor.evaluate_single("cac-place-ext:ContractFolderStatus/cac:ProcurementProject/cac:BudgetAmount/cbc:TotalAmount").typed_value.head.double_value
-    #     return self._total_amount
+    @property
+    def total_amount(self) -> Optional[str]:
+        if not hasattr(self, "_total_amount"):
+            CspEntry.entry_xpath_processor.set_context(xdm_item=self.entry)
+            self._total_amount: Optional[str] = CspEntry.entry_xpath_processor.evaluate_single("cac-place-ext:ContractFolderStatus/cac:ProcurementProject/cac:BudgetAmount/cbc:TotalAmount").typed_value.head.double_value
+        return self._total_amount
 
 
 class CspDoc:
@@ -113,14 +102,14 @@ class CspDoc:
     :param file_prefix: File prefix (LOCAL only)
     """
 
-    # doc_xpath_processor = saxon_processor.new_xpath_processor()
-    # doc_xpath_processor.declare_namespace("", NS)
-    # doc_xpath_processor.declare_namespace("at", NS_AT)
-    # doc_xpath_processor.declare_namespace("ns7", NS_NS7)
-    # doc_xpath_processor.declare_namespace("cbc", NS_CBC)
-    # doc_xpath_processor.declare_namespace("cac", NS_CAC)
-    # doc_xpath_processor.declare_namespace("cbc-place-ext", NS_CBC_PLACE_EXT)
-    # doc_xpath_processor.declare_namespace("cac-place-ext", NS_CAC_PLACE_EXT)
+    doc_xpath_processor = saxon_processor.new_xpath_processor()
+    doc_xpath_processor.declare_namespace("", NS)
+    doc_xpath_processor.declare_namespace("at", NS_AT)
+    doc_xpath_processor.declare_namespace("ns7", NS_NS7)
+    doc_xpath_processor.declare_namespace("cbc", NS_CBC)
+    doc_xpath_processor.declare_namespace("cac", NS_CAC)
+    doc_xpath_processor.declare_namespace("cbc-place-ext", NS_CBC_PLACE_EXT)
+    doc_xpath_processor.declare_namespace("cac-place-ext", NS_CAC_PLACE_EXT)
 
     def __init__(
         self,
@@ -131,7 +120,7 @@ class CspDoc:
         updated_after: Optional[datetime] = None
     ):
 
-        # self.doc: PyXdmNode
+        self.doc: PyXdmNode
         if file_location not in ["WEB", "LOCAL"]:
             raise ValueError("file_location must be 'WEB' or 'LOCAL'")
 
@@ -141,26 +130,24 @@ class CspDoc:
         self.prefix_path = prefix_path
         self.updated_after = updated_after
 
-        self.doc: etree._ElementTree
         if file_location == "WEB":
             if prefix_url is None:
                 raise ValueError("url_prefix is required when file_location is 'WEB'")
-            xml_url = f"{prefix_url}/{file_name}"
-            logger.debug(f"Loading atom web file {xml_url}")
+            logger.debug(f"Loading atom web file {prefix_url}/{file_name}")
 
-            # xml_text: str = requests.get(xml_url).text
-            xml_content: bytes = requests.get(xml_url).content
-            self.doc = etree.ElementTree(etree.fromstring(xml_content)) # Convert Element to ElementTree (for typing consistency)
+            xml_text: str = requests.get(f"{prefix_url}/{file_name}").text
+            self.doc = saxon_processor.parse_xml(xml_text=xml_text)
         else:  # file_location == "LOCAL"
             if prefix_path is None:
                 raise ValueError("file_prefix is required when file_location is 'WEB'")
             xml_file_name: str = f"{prefix_path}/{file_name}"
             logger.debug(f"Loading atom local file {xml_file_name}")
-            self.doc = etree.parse(xml_file_name)
+            self.doc = saxon_processor.parse_xml(xml_file_name=xml_file_name)
 
+        CspDoc.doc_xpath_processor.set_context(xdm_item=self.doc)
 
         if updated_after is not None:
-            updated_str = self.doc.xpath("/atom:feed/atom:updated/text()", namespaces=NAMESPACE_MAP)[0]
+            updated_str = CspDoc.doc_xpath_processor.evaluate_single("feed/updated").string_value
             if updated_str is not None:
                 updated = datetime.fromisoformat(updated_str)
                 if updated < updated_after:
@@ -179,18 +166,18 @@ class CspDoc:
         for id_plataforma in id_plataforma_list:                
             xpath = f"/feed/entry[cac-place-ext:ContractFolderStatus/cac-place-ext:LocatedContractingParty/cac:Party/cac:PartyIdentification/cbc:ID[@schemeName='ID_PLATAFORMA']='{id_plataforma}']"
             #  and cac-place-ext:ContractFolderStatus/cac:ProcurementProject/cac:RequiredCommodityClassification/cbc:ItemClassificationCode='{cpv}'
+            CspDoc.doc_xpath_processor.set_context(xdm_item=self.doc)
 
-
-            found = self.doc.xpath(xpath)
+            found: PyXdmValue = CspDoc.doc_xpath_processor.evaluate(xpath)
             if found is not None:
-                # node: PyXdmNode
+                node: PyXdmNode
                 for node in found:
                     entry = CspEntry(node)
-                    # logger.debug(f"Contractor Id: {entry.id_plataforma} Title: {entry.title} Total Amount {entry.total_amount:,.2f} - CPV: {entry.cpv}")
+                    logger.debug(f"Contractor Id: {entry.id_plataforma} Title: {entry.title} Total Amount {entry.total_amount:,.2f} - CPV: {entry.cpv}")
 
                     # logger.debug(f"Contractor Id: {id_plataforma} - CPV: {cpv} - Title: {title} - Total Amount {totalAmount:,.2f}")
 
-                    ret.append(node)
+                    ret.append(entry)
 
         return ret
 
@@ -244,7 +231,10 @@ class CspDoc:
     def _get_next_link(self) -> Optional[str]:
         xpath = "/feed/link[@rel='next']/@href"
 
-        item_single = self.doc.xpath(xpath)
+
+        CspDoc.doc_xpath_processor.set_context(xdm_item=self.doc)
+
+        item_single = CspDoc.doc_xpath_processor.evaluate_single(xpath)
 
         return item_single.string_value if item_single is not None else None
     
@@ -266,7 +256,7 @@ if __name__ == "__main__":
     env_loaded = load_dotenv()
 
     logger.setLevel(os.getenv("LOGLEVEL", "DEBUG"))
-    # logger.debug(f"Saxon Processor:  {saxon_processor.version}")
+    logger.debug(f"Saxon Processor:  {saxon_processor.version}")
 
     file: str = os.getenv(
         "FILE", "licitacionesPerfilesContratanteCompleto3.atom"
@@ -281,8 +271,8 @@ if __name__ == "__main__":
     entries: list[CspEntry] = []
     for doc in atom_doc:
         logger.debug(f"Searching in file: {doc.file_name}")
-        # doc_entries: list[CspEntry] = doc.search_entry(contractor_ids)
-        # entries.extend(doc_entries)
+        doc_entries: list[CspEntry] = doc.search_entry(contractor_ids)
+        entries.extend(doc_entries)
 
     logger.debug(f"Found {len(entries)} entries")
 

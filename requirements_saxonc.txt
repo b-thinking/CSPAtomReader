@@ -1,0 +1,10 @@
+# Common
+python-dotenv>=1.2
+
+# HTTP
+requests>=2.32
+
+# Parsing Atom XML file with XQuery support
+# https://pypi.org/project/saxonche/
+saxonche>=12.9
+

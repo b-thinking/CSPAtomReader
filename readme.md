@@ -38,6 +38,8 @@
 
 # Libraries
 
+## Usando XQuery
+### SaxonC-HE
 Alternatives for using XQuery to read Atom files
 
 ✅ saxonche (SaxonC-HE)
@@ -60,6 +62,150 @@ Porque:
 - lxml no soporta XQuery (solo XPath / XSLT 1.0).
 - Los XML de la plataforma usan namespaces complejos (UBL + CODICE), y XQuery es muy útil para gestionarlos.
 - Puedes usar lxml para parseo básico, pero no para XQuery.
+
+## Alternativas usando sólo XPath
+
+### 🥇 lxml
+
+➡️ Recomendada para el 95 % de los casos prácticos.
+
+Escrita en C (usa libxml2 + libxslt).
+
+XPath 1.0 completo (más que suficiente para feeds Atom y CODICE).
+
+Decenas de veces más rápida que SaxonC en consultas simples.
+
+Soporta namespaces perfectamente.
+
+Ejemplo:
+from lxml import etree
+
+doc = etree.parse("feed.atom")
+
+ns = {
+    "a": "http://www.w3.org/2005/Atom",
+    "place": "urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonAggregateComponents-2",
+    "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
+    "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+}
+
+id_plataforma = "50179410029721"
+entries = doc.xpath(
+    "/a:feed/a:entry["
+    "place:ContractFolderStatus/"
+    "place:LocatedContractingParty/"
+    "cac:Party/"
+    "cac:PartyIdentification/"
+    "cbc:ID[@schemeName='ID_PLATAFORMA'] = $id]",
+    id=id_plataforma,
+    namespaces=ns
+)
+
+for e in entries:
+    print(e.findtext("{http://www.w3.org/2005/Atom}title"))
+
+
+✅ Ventajas:
+
+Muy rápida (parsing + XPath en C).
+
+Nativa en Python.
+
+Fácil de depurar.
+
+Sin coste de inicialización.
+
+❌ Limitación: solo XPath 1.0 (sin for, let, ni order by).
+
+### 🥈 elementpath
+
+➡️ Implementación pura de XPath 3.1 en Python.
+
+Compatible con XPath 2.0 / 3.1, mucho más expresivo que lxml.
+
+No necesita Java ni C++.
+
+Más lenta que lxml, pero mucho más ligera que SaxonC.
+
+Muy útil si necesitas for, if, cast, funciones, etc.
+
+Ejemplo:
+from elementpath import select, XPathContext
+from xml.etree import ElementTree as ET
+
+doc = ET.parse("feed.atom").getroot()
+ctx = XPathContext(doc, namespaces=ns)
+
+for node in select(ctx,
+    "/a:feed/a:entry["
+    "place:ContractFolderStatus/"
+    "place:LocatedContractingParty/"
+    "cac:Party/"
+    "cac:PartyIdentification/"
+    "cbc:ID[@schemeName='ID_PLATAFORMA'] = '50179410029721']"
+):
+    print(node.findtext("{http://www.w3.org/2005/Atom}title"))
+
+
+✅ Ventajas:
+
+XPath 3.1 completo.
+
+Instalación simple (pip install elementpath).
+
+Sin dependencias externas.
+
+❌ Más lenta que lxml en grandes XML.
+
+🥉 xmlschema + elementpath
+
+Si además validas contra los XSD CODICE/UBL, xmlschema usa elementpath internamente, con soporte para XPath 3.1 y validación.
+Pero es la más pesada de las tres.
+
+🔍 Comparativa de rendimiento (referencia práctica)
+Librería	XPath versión	Velocidad	Ideal para
+lxml	1.0	⚡⚡⚡ Muy alta	Lectura y filtrado rápido de XML grandes
+elementpath	3.1	⚡ Media	XPath avanzado, sin XQuery
+SaxonC-HE / saxonche	3.1 / XQuery	🐢 Lenta	XQuery, XSLT, validación compleja
+🚀 Recomendación concreta para ti
+
+Como tus consultas son de este tipo:
+
+/a:feed/a:entry[
+  place:ContractFolderStatus/
+  place:LocatedContractingParty/
+  cac:Party/
+  cac:PartyIdentification/
+  cbc:ID[@schemeName='ID_PLATAFORMA'] = '...'
+]
+
+
+➡️ Usa lxml.
+No notarás pérdida funcional, y el rendimiento aumentará enormemente (10×–50× más rápido).
+
+⚙️ Tip extra: usar iterparse con lxml para feeds grandes
+
+Si los Atom pesan decenas o cientos de MB:
+
+from lxml import etree
+
+context = etree.iterparse("feed.atom", tag="{http://www.w3.org/2005/Atom}entry")
+
+for _, entry in context:
+    id_elem = entry.xpath(
+        "place:ContractFolderStatus/"
+        "place:LocatedContractingParty/"
+        "cac:Party/"
+        "cac:PartyIdentification/"
+        "cbc:ID[@schemeName='ID_PLATAFORMA']",
+        namespaces=ns
+    )
+    if id_elem and id_elem[0].text == "50179410029721":
+        print(entry.findtext("{http://www.w3.org/2005/Atom}title"))
+    entry.clear()
+
+
+Procesa el XML en streaming, sin cargarlo entero en memoria — ideal para los feeds de la Plataforma.
 
 
 # Pending: Optimize
