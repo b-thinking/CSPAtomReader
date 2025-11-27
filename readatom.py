@@ -14,6 +14,7 @@ import logging
 
 from datetime import datetime
 from dotenv import load_dotenv
+import csv
 
 
 import requests
@@ -54,10 +55,12 @@ class CspEntry:
     :param entry: Atom entry containing the contract
     """
 
-    def __init__(self, entry: etree.Element, id_plataforma: Optional[str] = None) -> None:
+    def __init__(self, entry: etree.Element, id_plataforma: Optional[str] = None, dir3: Optional[str] = None) -> None:
         self.entry: etree.Element = entry
         if id_plataforma is not None:
             self._id_plataforma = id_plataforma
+        if dir3 is not None:
+            self._dir3 = dir3
 
     
     @property
@@ -73,16 +76,21 @@ class CspEntry:
         return self._id_plataforma
     
     @property
+    def dir3(self) -> Optional[str]:
+        if not hasattr(self, "_dir3"):
+            xpath: str = """
+                cac-place-ext:ContractFolderStatus/cac-place-ext:LocatedContractingParty/
+                cac:Party/cac:PartyIdentification/
+                cbc:ID[@schemeName='DIR3']/
+                text()
+                """
+            self._dir3: Optional[str] = self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)[0]
+        return self._dir3
+    
+    
+    @property
     def cpv(self) -> Optional[str]:
         if not hasattr(self, "_cpv"):
-            # xpath: str = """
-            #     cac-place-ext:ContractFolderStatus/
-            #     cac:ProcurementProject/
-            #     cac:RequiredCommodityClassification/
-            #     cbc:ItemClassificationCode/
-            #     text()
-            #     """
-            # self._cpv: Optional[str] = self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)[0]
             find_path: str = f"{{{NS_CAC_PLACE_EXT}}}ContractFolderStatus/{{{NS_CAC}}}ProcurementProject/{{{NS_CAC}}}RequiredCommodityClassification/{{{NS_CBC}}}ItemClassificationCode"
             self._cpv: Optional[str] = self.entry.find(find_path).text
 
@@ -91,47 +99,57 @@ class CspEntry:
     def title(self) -> Optional[str]:
         if not hasattr(self, "_title"):
             self._title: Optional[str] = self.entry.find(f"{{{NS_ATOM}}}title").text
-            # self._title: Optional[str] = self.entry.xpath("atom:title/text()")[0]
         return self._title
+
+    @property
+    def updated(self) -> Optional[datetime]:
+        if not hasattr(self, "_updated"):
+            self._updated: Optional[datetime] = datetime.fromisoformat(self.entry.find(f"{{{NS_ATOM}}}updated").text)
+        return self._updated
 
     @property
     def total_amount(self) -> Optional[float]:
         if not hasattr(self, "_total_amount"):
-            # xpath: str = """
-            #     cac-place-ext:ContractFolderStatus/
-            #     cac:ProcurementProject/
-            #     cac:BudgetAmount/
-            #     cbc:TotalAmount/
-            #     text()
-            #     """
-            # self._total_amount: Optional[float] = float(self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)[0])
 
             find_path: str = f"{{{NS_CAC_PLACE_EXT}}}ContractFolderStatus/{{{NS_CAC}}}ProcurementProject/{{{NS_CAC}}}BudgetAmount/{{{NS_CBC}}}TotalAmount"
             self._total_amount: Optional[float] = float(self.entry.find(find_path).text)
         return self._total_amount
 
     @property
-    def technical_docs(self) -> list:
+    def contract_folder_id(self) -> Optional[str]:
+        if not hasattr(self, "_contract_folder_id"):
+            find_path: str = f"{{{NS_CAC_PLACE_EXT}}}ContractFolderStatus/{{{NS_CBC}}}ContractFolderID"
+            self._contract_folder_id: Optional[str] = self.entry.find(find_path).text
+        return self._contract_folder_id
+    
+    @property
+    def technical_docs(self) -> list[tuple[str,str,str]]:
         if not hasattr(self, "_technical_docs"):
-            # xpath: str = """
-            #     cac-place-ext:ContractFolderStatus/
-            #     cac:ProcurementProject/
-            #     cac:BudgetAmount/
-            #     cbc:TotalAmount/
-            #     text()
-            #     """
-            # self._total_amount: Optional[float] = float(self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)[0])
-
             find_path: str = f"{{{NS_CAC_PLACE_EXT}}}ContractFolderStatus/{{{NS_CAC}}}TechnicalDocumentReference"
             nodes: list = self.entry.findall(find_path)
             self._technical_docs: list[tuple[str,str,str]] = []
             for node in nodes:
-                id: str = node.find(f"{{{NS_CBC}}}ID").text
-                attachment_uri: str = node.find(f"{{{NS_CAC}}}Attachment/{{{NS_CAC}}}ExternalReference/{{{NS_CBC}}}URI").text
-                attachment_hash: str = node.find(f"{{{NS_CAC}}}Attachment/{{{NS_CAC}}}ExternalReference/{{{NS_CBC}}}DocumentHash").text
+                id: str = node.find(f"{{{NS_CBC}}}ID").text.strip()
+                attachment_uri: str = node.find(f"{{{NS_CAC}}}Attachment/{{{NS_CAC}}}ExternalReference/{{{NS_CBC}}}URI").text.strip()
+                attachment_hash: str = node.find(f"{{{NS_CAC}}}Attachment/{{{NS_CAC}}}ExternalReference/{{{NS_CBC}}}DocumentHash").text.strip()
                 self._technical_docs.append((id, attachment_uri, attachment_hash))
 
         return self._technical_docs
+    
+    @property
+    def general_docs(self) -> list[tuple[str,str,str]]:
+        
+        if not hasattr(self, "_general_docs"):
+            find_path: str = f"{{{NS_CAC_PLACE_EXT}}}ContractFolderStatus/{{{NS_CAC_PLACE_EXT}}}GeneralDocument/{{{NS_CAC_PLACE_EXT}}}GeneralDocumentDocumentReference"
+            nodes: list = self.entry.findall(find_path)
+            self._general_docs: list[tuple[str,str,str]] = []
+            for node in nodes:
+                id: str = node.find(f"{{{NS_CBC}}}ID").text.strip()
+                attachment_uri: str = node.find(f"{{{NS_CAC}}}Attachment/{{{NS_CAC}}}ExternalReference/{{{NS_CBC}}}URI").text.strip()
+                attachment_file_name: str = node.find(f"{{{NS_CAC}}}Attachment/{{{NS_CAC}}}ExternalReference/{{{NS_CBC}}}FileName").text.strip()
+                self._general_docs.append((id, attachment_uri, attachment_file_name))
+
+        return self._general_docs
 
 class CspDoc:
     """
@@ -189,7 +207,7 @@ class CspDoc:
                     raise ValueError(f"File is older than {updated_after}")
 
 
-    def search_entry(self, id_plataforma_list: list[str]) -> list[CspEntry]:
+    def search_entry(self, id_plataforma_list: list[str], dir3_list: list[str]) -> list[CspEntry]:
         """
         Search entries for a given list of platform ids and, for every platform id, a list of CPVs
 
@@ -197,21 +215,29 @@ class CspDoc:
 
         :return entries: list of found entries, with platform id, cpv, title, amount and full entry as PyXdmNode
         """
-        ret: list[CspEntry] = []
-        for id_plataforma in id_plataforma_list:                
-            xpath = f"/atom:feed/atom:entry[cac-place-ext:ContractFolderStatus/cac-place-ext:LocatedContractingParty/cac:Party/cac:PartyIdentification/cbc:ID[@schemeName='ID_PLATAFORMA']='{id_plataforma}']"
-            #  and cac-place-ext:ContractFolderStatus/cac:ProcurementProject/cac:RequiredCommodityClassification/cbc:ItemClassificationCode='{cpv}'
-
-
-            found: list[etree.Element] = self.doc.xpath(xpath, namespaces=NAMESPACE_MAP)
+        def add_entries(found: list[etree.Element], csp_entries: list[CspEntry], id_plataforma: Optional[str] = None, dir3: Optional[str] = None):
             if found is not None:
                 node: etree.Element
                 for node in found:
-                    entry = CspEntry(node)
-                    logger.debug(f"Contractor Id: {entry.id_plataforma} - CPV: {entry.cpv} - Title: {entry.title}  - Total Amount {entry.total_amount:,.2f}")
-
+                    entry = CspEntry(node, id_plataforma=id_plataforma, dir3=dir3)
+                    logger.debug(f"Contractor Id: {entry.id_plataforma} - Contract Folder Id {entry.contract_folder_id} - CPV: {entry.cpv} - Title: {entry.title} - Updated {entry.updated.isoformat() if entry.updated is not None else 'N/A'} - Total Amount {entry.total_amount:,.2f}")
                     logger.debug(entry.technical_docs)
-                    ret.append(node)
+                    csp_entries.append(entry)
+
+        ret: list[CspEntry] = []
+
+        # Search entries by ID_PLATAFORMA          
+        for id_plataforma in id_plataforma_list:
+            xpath = f"/atom:feed/atom:entry[cac-place-ext:ContractFolderStatus/cac-place-ext:LocatedContractingParty/cac:Party/cac:PartyIdentification/cbc:ID[@schemeName='ID_PLATAFORMA']='{id_plataforma}']"
+            found: list[etree.Element] = self.doc.xpath(xpath, namespaces=NAMESPACE_MAP)
+            add_entries(found, ret, id_plataforma=id_plataforma)
+
+        # Search entries by DIR3          
+        for dir3 in dir3_list:
+            xpath = f"/atom:feed/atom:entry[cac-place-ext:ContractFolderStatus/cac-place-ext:LocatedContractingParty/cac:Party/cac:PartyIdentification/cbc:ID[@schemeName='DIR3']='{dir3}']"
+            found: list[etree.Element] = self.doc.xpath(xpath, namespaces=NAMESPACE_MAP)
+            add_entries(found, ret, dir3=dir3)
+
 
         return ret
 
@@ -282,7 +308,7 @@ class CspDoc:
 # region: Set logging
 logger = logging.getLogger()
 if not logger.handlers:
-    loghandler = logging.StreamHandler(sys.stdout)
+    loghandler = logging.StreamHandler(sys.stderr)
     formatter = logging.Formatter("[%(levelname)s] %(message)s")
     loghandler.setFormatter(formatter)
     logger.addHandler(loghandler)
@@ -302,17 +328,31 @@ if __name__ == "__main__":
     prefix_url: Optional[str] = os.getenv("PREFIX_URL")
     prefix_path: Optional[str] = os.getenv("PREFIX_PATH")
     contractor_ids: list[str] = os.getenv("ENTRY_CONTRACTOR_IDS","").split(",")
+    dir3_ids: list[str] = os.getenv("ENTRY_DIR3_IDS","").split(",")
     doc_updated_after: datetime = datetime.fromisoformat(os.getenv("DOC_UPDATED_AFTER",""))
 
     try: 
         atom_doc: CspDoc = CspDoc(file, file_location, prefix_url, prefix_path, doc_updated_after)
         entries: list[CspEntry] = []
+        total_entries: int = 0
+        csv_writer = csv.writer(sys.stdout, quoting=csv.QUOTE_NONNUMERIC)
+        csv_writer.writerow(["ID_PLATAFORMA","DIR3","Contract Folder Id","CPV","Title","Date","Total Amount","Document Id","Document URI","Document Hash/Filename"])         
         for doc in atom_doc:
             logger.debug(f"Searching in file: {doc.file_name}")
-            doc_entries: list[CspEntry] = doc.search_entry(contractor_ids)
-            entries.extend(doc_entries)
+            doc_entries: list[CspEntry] = doc.search_entry(contractor_ids, dir3_ids)
+            for entry in doc_entries:
+                csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),entry.total_amount,"Document Id","Document URI","Document Hash"])
+                for technical_doc in entry.technical_docs:
+                    csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"TechnicalDoc:",technical_doc[0],technical_doc[1],technical_doc[2]])
+                for general_doc in entry.general_docs:
+                    csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"GeneralDoc:",general_doc[0],general_doc[1],general_doc[2]])
 
-        logger.debug(f"Found {len(entries)} entries")
+            total_entries += len(doc_entries)
+            # entries.extend(doc_entries)
+
+        logger.debug(f"Found {total_entries} entries")
+
+  
     except ValueError as ve:
         logger.error(f"Error loading document {file}: {ve}")
 

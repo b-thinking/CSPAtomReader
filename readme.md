@@ -34,7 +34,63 @@
 
 ### CPV codes
 - [Catalan](https://datos.gob.es/es/catalogo/a09002970-listado-de-codigos-cpv)
+- [Español](https://www.hacienda.gob.es/DGPatrimonio/SGCCRC/RCSP/cpv2008.xls)
 - [Europe](https://ted.europa.eu/en/simap/cpv)
+
+# Tenant emeasespainsandbox
+- Compartment: test_csp
+  - OCID: ocid1.compartment.oc1..aaaaaaaax4mu6rezfqyl4gtdqcdmb6dna2nyzeixdps7jsyfxbnucr7hjw5a
+- Instance: 
+  - AD-3
+  - Image: Oracle Linux 9 - 2025.10.23-0
+  - Shape: Ampere A2
+  - OCPUS: 6
+  - Memory in GB: 32
+  - Security: None
+  - Network
+    - VCN: labvch
+    - Subnet: private
+  - Certificates
+    - Private key: oci_emeasespainsandbox_test_csp.key
+    - Public key: oci_emeasespainsandbox_test_csp.pub
+  - Block volume
+    - test_csp_block
+    - Size: 256
+    - VPU: 20
+    - Attachment: iSCSI
+    - Mount: /dev/oracleoci/oraclevdb
+    - OCID: ocid1.volume.oc1.eu-frankfurt-1.abtheljr6xruxkrwzxafyeebcnhodesjb2pwnpv3y43mj77xhyc5bpf7zseq
+    - Consistent name: /dev/oracleoci/oraclevda
+    - Connect
+    ```shell
+    sudo iscsiadm -m node -o new -T iqn.2015-12.com.oracleiaas:54efd68c-7ef9-403f-bf4b-d741216df010 -p 169.254.2.2:3260
+    sudo iscsiadm -m node -o update -T iqn.2015-12.com.oracleiaas:54efd68c-7ef9-403f-bf4b-d741216df010 -n node.startup -v automatic
+    sudo iscsiadm -m node -T iqn.2015-12.com.oracleiaas:54efd68c-7ef9-403f-bf4b-d741216df010 -p 169.254.2.2:3260 -l
+    ```
+    - Format
+    ```shell
+    sudo fdisk  /dev/sdb
+
+    Disk /dev/sdb: 256 GiB, 274877906944 bytes, 536870912 sectors
+    Disk model: BlockVolume     
+    Units: sectors of 1 * 512 = 512 bytes
+    Sector size (logical/physical): 512 bytes / 4096 bytes
+    I/O size (minimum/optimal): 4096 bytes / 1048576 bytes
+    Disklabel type: gpt
+    Disk identifier: 25C07CDD-41E8-E845-A6EB-E944C37E3D08
+    
+    sudo mkfs.xfs /dev/sdb -f
+
+    ```
+    - Disconnect
+    ```shell
+    sudo iscsiadm -m node -T iqn.2015-12.com.oracleiaas:54efd68c-7ef9-403f-bf4b-d741216df010 -p 169.254.2.2:3260 -u
+    sudo iscsiadm -m node -o delete -T iqn.2015-12.com.oracleiaas:54efd68c-7ef9-403f-bf4b-d741216df010 -p 169.254.2.2:3260
+    ```
+
+    - fstab
+    UUID=563bcc46-becb-42b2-94ac-48ed8c338ff5   /mnt/sdb   xfs   defaults,_netdev,nofail   0 2
+
 
 # Libraries
 
