@@ -61,8 +61,24 @@ class CspEntry:
             self._id_plataforma = id_plataforma
         if dir3 is not None:
             self._dir3 = dir3
+    @property
+    def id(self) -> Optional[str]:
+        if not hasattr(self, "_id"):
+            self._id: Optional[str] = self.entry.find(f"{{{NS_ATOM}}}id").text
+        return self._id
 
-    
+    @property
+    def link(self) -> Optional[str]:
+        if not hasattr(self, "_link"):
+            self._link: Optional[str] = self.entry.find(f"{{{NS_ATOM}}}link").get("href")
+        return self._link
+
+    @property
+    def title(self) -> Optional[str]:
+        if not hasattr(self, "_title"):
+            self._title: Optional[str] = self.entry.find(f"{{{NS_ATOM}}}title").text
+        return self._title
+
     @property
     def id_plataforma(self) -> Optional[str]:
         if not hasattr(self, "_id_plataforma"):
@@ -72,7 +88,8 @@ class CspEntry:
                 cbc:ID[@schemeName='ID_PLATAFORMA']/
                 text()
                 """
-            self._id_plataforma: Optional[str] = self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)[0]
+            list = self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)
+            self._id_plataforma: Optional[str] = list[0] if list and len(list) > 0 else None
         return self._id_plataforma
     
     @property
@@ -84,7 +101,8 @@ class CspEntry:
                 cbc:ID[@schemeName='DIR3']/
                 text()
                 """
-            self._dir3: Optional[str] = self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)[0]
+            list = self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)
+            self._dir3: Optional[str] = list[0] if list and len(list) > 0 else None
         return self._dir3
     
     
@@ -93,13 +111,8 @@ class CspEntry:
         if not hasattr(self, "_cpv"):
             find_path: str = f"{{{NS_CAC_PLACE_EXT}}}ContractFolderStatus/{{{NS_CAC}}}ProcurementProject/{{{NS_CAC}}}RequiredCommodityClassification/{{{NS_CBC}}}ItemClassificationCode"
             self._cpv: Optional[str] = self.entry.find(find_path).text
-
         return self._cpv
-    @property
-    def title(self) -> Optional[str]:
-        if not hasattr(self, "_title"):
-            self._title: Optional[str] = self.entry.find(f"{{{NS_ATOM}}}title").text
-        return self._title
+
 
     @property
     def updated(self) -> Optional[datetime]:
@@ -114,7 +127,21 @@ class CspEntry:
             find_path: str = f"{{{NS_CAC_PLACE_EXT}}}ContractFolderStatus/{{{NS_CAC}}}ProcurementProject/{{{NS_CAC}}}BudgetAmount/{{{NS_CBC}}}TotalAmount"
             self._total_amount: Optional[float] = float(self.entry.find(find_path).text)
         return self._total_amount
-
+    # Get tenders with code 8 (Awarded)
+    @property
+    def tender_name(self) -> Optional[str]:
+        if not hasattr(self, "_tender_name"):
+            xpath: str =  """
+                cac-place-ext:ContractFolderStatus/
+                cac:TenderResult[cbc:ResultCode='8']/
+                cac:WinningParty/
+                cac:PartyName/
+                cbc:Name/
+                text()
+                """
+            list = self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)
+            self._tender_name: Optional[str] = "|".join(list) if list and len(list) > 0 else None
+        return self._tender_name
     @property
     def contract_folder_id(self) -> Optional[str]:
         if not hasattr(self, "_contract_folder_id"):
@@ -273,7 +300,6 @@ class CspDoc:
             doc = doc.next_doc()
 
 
-
     def _get_next_basename(self) -> Optional[str]:
         next_link = self._get_next_link()
         if next_link:
@@ -333,22 +359,24 @@ if __name__ == "__main__":
 
     try: 
         atom_doc: CspDoc = CspDoc(file, file_location, prefix_url, prefix_path, doc_updated_after)
-        entries: list[CspEntry] = []
+        # Entry can be duplicated in several files, due to changes. Every change publish a new entry in atom files
+        entry_ids: list[str] = []
         total_entries: int = 0
         csv_writer = csv.writer(sys.stdout, quoting=csv.QUOTE_NONNUMERIC)
-        csv_writer.writerow(["ID_PLATAFORMA","DIR3","Contract Folder Id","CPV","Title","Date","Total Amount","Document Id","Document URI","Document Hash/Filename"])         
+        csv_writer.writerow(["ID_PLATAFORMA","DIR3","Contract Folder Id","CPV","Title","Date","Total Amount","Id","URI","Tender Name/Document Hash/Filename"])         
         for doc in atom_doc:
             logger.debug(f"Searching in file: {doc.file_name}")
             doc_entries: list[CspEntry] = doc.search_entry(contractor_ids, dir3_ids)
             for entry in doc_entries:
-                csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),entry.total_amount,"Document Id","Document URI","Document Hash"])
-                for technical_doc in entry.technical_docs:
-                    csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"TechnicalDoc:",technical_doc[0],technical_doc[1],technical_doc[2]])
-                for general_doc in entry.general_docs:
-                    csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"GeneralDoc:",general_doc[0],general_doc[1],general_doc[2]])
+                if entry.id is not None and entry.id not in entry_ids:
+                    entry_ids.append(entry.id)
+                    csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),entry.total_amount,entry.id,entry.link,entry.tender_name])
+                    for technical_doc in entry.technical_docs:
+                        csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"TechnicalDoc:",technical_doc[0],technical_doc[1],technical_doc[2]])
+                    for general_doc in entry.general_docs:
+                        csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"GeneralDoc:",general_doc[0],general_doc[1],general_doc[2]])
 
             total_entries += len(doc_entries)
-            # entries.extend(doc_entries)
 
         logger.debug(f"Found {total_entries} entries")
 
