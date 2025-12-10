@@ -210,3 +210,7 @@ __marimo__/
 # JMA: Ignore Mac attributes file
 .DS_Store
 
+# JMA: Ignore downloaded licitaciontes files
+licitaciones*
+
+
