@@ -53,7 +53,7 @@ La configuración se realiza mediante un fichero `.env` con las variables de ent
 
 Las entidades a seleccionar deben identificarse en el inventario de todas las [entidades registradas en la plataforma](https://contrataciondelsectorpublico.gob.es/datosabiertos/OrganosContratacion.xlsx). **ES IMPORTANTE** que dependiendo el tipo de entidad, cada entidad está identificada o por su ID en la plataforma, por su código ID3 o por su NIF. Ahora mismo, el script soporta el ID de plataforma y el DIR3 (añadir el NIF es trivial si fuera necesario). Es importante que determinadas entidades publican sus pliegos sin ID de plataforma y hay que buscarlos por DIR3 (por ejemplo, Banco de España, aunque tiene ID de plataforma, pública sus pliegos sólo con ID3)
 
-Una vez identificadas las entidades, se pueden indicar en el archivo `.env` en las variables `ENTRY_CONTRACTOR_IDS`y/o `ENTRY_DIR3_IDS`, según se use IDs o ID3, de la siguiente manera:
+Una vez identificadas las entidades, se pueden indicar en el archivo `.env` en las variables `ENTRY_CONTRACTOR_IDS`y/o `ENTRY_DIR3_IDS`, según se use IDs o ID3, de la siguiente manera (una única cadena separada por comas):
 
 ```ini
 # ADIF
@@ -158,7 +158,7 @@ Ejemplo de salida:
 
 # VM for processing
 
-Como el script tarda un rato, se ha creado una VM con la que se puede ejecutar el script. Si hace falta, pedidme los datos de acceso.
+Como el script tarda un rato, cree una VM para ejecutar el script. Al borrar el comparment la máquina se borró, pero dejo los datos aquí
 
 - Tenant emeasespainsandbox
 - Compartment: test_csp
