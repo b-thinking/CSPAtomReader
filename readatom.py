@@ -142,6 +142,56 @@ class CspEntry:
             list = self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)
             self._tender_name: Optional[str] = "|".join(list) if list and len(list) > 0 else None
         return self._tender_name
+    
+    @property
+    def tender_accepted_count(self) -> int:
+        if not hasattr(self, "_tender_accepted_count"):
+            xpath: str =  """
+                count(
+                cac-place-ext:ContractFolderStatus/
+                cac:TenderResult
+                    [
+                    cbc:ResultCode='8' or cbc:ResultCode='3'
+                    ]
+                )
+                """
+            count: int = int(self.entry.xpath(xpath,namespaces=NAMESPACE_MAP))
+            self._tender_accepted_count: int = count
+        return self._tender_accepted_count
+    
+    @property
+    def tender_excluded_count(self) -> int:
+        if not hasattr(self, "_tender_excluded_count"):
+            xpath: str =  """
+                count
+                (
+                    cac-place-ext:ContractFolderStatus/
+                    cac:TenderResult
+                        [
+                        cbc:ResultCode='1'
+                        ]
+                )
+                """
+            count: int = int(self.entry.xpath(xpath,namespaces=NAMESPACE_MAP))
+            self._tender_excluded_count: int = count
+        return self._tender_excluded_count
+    
+    @property
+    def tender_other_count(self) -> int:
+        if not hasattr(self, "_tender_other_count"):
+            xpath: str =  """
+                count
+                (
+                    cac-place-ext:ContractFolderStatus/
+                    cac:TenderResult
+                    [
+                        cbc:ResultCode!='1' and cbc:ResultCode!='3' and cbc:ResultCode!='8'
+                    ]
+                )
+                """
+            count: int = int(self.entry.xpath(xpath,namespaces=NAMESPACE_MAP))
+            self._tender_other_count: int = count
+        return self._tender_other_count
     @property
     def contract_folder_id(self) -> Optional[str]:
         if not hasattr(self, "_contract_folder_id"):
@@ -162,7 +212,20 @@ class CspEntry:
                 self._technical_docs.append((id, attachment_uri, attachment_hash))
 
         return self._technical_docs
-    
+
+    @property
+    def additional_docs(self) -> list[tuple[str,str,str]]:
+        if not hasattr(self, "_additional_docs"):
+            find_path: str = f"{{{NS_CAC_PLACE_EXT}}}ContractFolderStatus/{{{NS_CAC}}}AdditionalDocumentReference"
+            nodes: list = self.entry.findall(find_path)
+            self._additional_docs: list[tuple[str,str,str]] = []
+            for node in nodes:
+                id: str = node.find(f"{{{NS_CBC}}}ID").text.strip()
+                attachment_uri: str = node.find(f"{{{NS_CAC}}}Attachment/{{{NS_CAC}}}ExternalReference/{{{NS_CBC}}}URI").text.strip()
+                attachment_hash: str = node.find(f"{{{NS_CAC}}}Attachment/{{{NS_CAC}}}ExternalReference/{{{NS_CBC}}}DocumentHash").text.strip()
+                self._technical_docs.append((id, attachment_uri, attachment_hash))
+
+        return self._additional_docs    
     @property
     def general_docs(self) -> list[tuple[str,str,str]]:
         
@@ -363,16 +426,18 @@ if __name__ == "__main__":
         entry_ids: list[str] = []
         total_entries: int = 0
         csv_writer = csv.writer(sys.stdout, quoting=csv.QUOTE_NONNUMERIC)
-        csv_writer.writerow(["ID_PLATAFORMA","DIR3","Contract Folder Id","CPV","Title","Date","Total Amount","Id","URI","Tender Name/Document Hash/Filename"])         
+        csv_writer.writerow(["ID_PLATAFORMA","DIR3","Contract Folder Id","CPV","Title","Date","Total Amount","Id","URI","Tender Name/Document Hash/Filename", "# Tender Accepted", "# Tender Excluded", "# Tender Other"])         
         for doc in atom_doc:
             logger.debug(f"Searching in file: {doc.file_name}")
             doc_entries: list[CspEntry] = doc.search_entry(contractor_ids, dir3_ids)
             for entry in doc_entries:
                 if entry.id is not None and entry.id not in entry_ids:
                     entry_ids.append(entry.id)
-                    csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),entry.total_amount,entry.id,entry.link,entry.tender_name])
+                    csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),entry.total_amount,entry.id,entry.link,entry.tender_name, entry.tender_accepted_count, entry.tender_excluded_count, entry.tender_other_count])
                     for technical_doc in entry.technical_docs:
                         csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"TechnicalDoc:",technical_doc[0],technical_doc[1],technical_doc[2]])
+                    for additional_doc in entry.additional_docs:
+                        csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"AdditionalDoc:",additional_doc[0],additional_doc[1],additional_doc[2]])
                     for general_doc in entry.general_docs:
                         csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"GeneralDoc:",general_doc[0],general_doc[1],general_doc[2]])
 
