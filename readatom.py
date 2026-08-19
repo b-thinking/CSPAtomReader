@@ -223,7 +223,7 @@ class CspEntry:
                 id: str = node.find(f"{{{NS_CBC}}}ID").text.strip()
                 attachment_uri: str = node.find(f"{{{NS_CAC}}}Attachment/{{{NS_CAC}}}ExternalReference/{{{NS_CBC}}}URI").text.strip()
                 attachment_hash: str = node.find(f"{{{NS_CAC}}}Attachment/{{{NS_CAC}}}ExternalReference/{{{NS_CBC}}}DocumentHash").text.strip()
-                self._technical_docs.append((id, attachment_uri, attachment_hash))
+                self._additional_docs.append((id, attachment_uri, attachment_hash))
 
         return self._additional_docs    
     @property
