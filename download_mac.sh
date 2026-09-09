@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-
-
 # Download Atom files
 # Years 2020-current_year-1: one file per year
 # Current year: one file per month
+
+set -euo pipefail
 
 mkdir -p licitacionesPerfilesContratanteCompleto3
 
@@ -19,7 +19,7 @@ done
 
 # Download current year months (one file per month up to current month)
 for month in $(seq -w 1 $current_month); do
-    echo "Downloading year ${current_year} month ${month}"
+    echo "Downloading year '${current_year}' month '${month}'"
     wget -qO- "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3_${current_year}${month}.zip" | tar -xvf- -C licitacionesPerfilesContratanteCompleto3
 done
 
