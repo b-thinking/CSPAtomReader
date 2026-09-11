@@ -283,7 +283,7 @@ class CspDoc:
             self.doc = etree.ElementTree(etree.fromstring(xml_content)) # Convert Element to ElementTree (for typing consistency)
         else:  # file_location == "LOCAL"
             if prefix_path is None:
-                raise ValueError("file_prefix is required when file_location is 'WEB'")
+                raise ValueError("file_prefix is required when file_location is 'LOCAL'")
             xml_file_name: str = f"{prefix_path}/{file_name}"
             logger.debug(f"Loading atom local file {xml_file_name}")
             self.doc = etree.parse(xml_file_name)
@@ -297,15 +297,17 @@ class CspDoc:
                     raise ValueError(f"File is older than {updated_after}")
 
 
-    def search_entry(self, id_plataforma_list: list[str], dir3_list: list[str]) -> list[CspEntry]:
+    def search_entry(self, id_plataforma_list: list[str], dir3_list: list[str], cif_list: list[str]) -> list[CspEntry]:
         """
         Search entries for a given list of platform ids and, for every platform id, a list of CPVs
 
         :param id_plataforma_list: List of platform ids
+        :param dir3_list: List of platform id3 ids
+        :param cif_list: List of CIF (Spanish Tax ID) ids
 
         :return entries: list of found entries, with platform id, cpv, title, amount and full entry as PyXdmNode
         """
-        def add_entries(found: list[etree.Element], csp_entries: list[CspEntry], id_plataforma: Optional[str] = None, dir3: Optional[str] = None):
+        def add_entries(found: list[etree.Element], csp_entries: list[CspEntry], id_plataforma: Optional[str] = None, dir3: Optional[str] = None,  cif: Optional[str] = None):
             if found is not None:
                 node: etree.Element
                 for node in found:
@@ -328,6 +330,11 @@ class CspDoc:
             found: list[etree.Element] = self.doc.xpath(xpath, namespaces=NAMESPACE_MAP)
             add_entries(found, ret, dir3=dir3)
 
+        # Search entries by CIF          
+        for cif in cif_list:
+            xpath = f"/atom:feed/atom:entry[cac-place-ext:ContractFolderStatus/cac-place-ext:LocatedContractingParty/cac:Party/cac:PartyIdentification/cbc:ID[@schemeName='NIF']='{cif}']"
+            found: list[etree.Element] = self.doc.xpath(xpath, namespaces=NAMESPACE_MAP)
+            add_entries(found, ret, cif=cif)
 
         return ret
 
@@ -410,14 +417,15 @@ if __name__ == "__main__":
     logger.setLevel(os.getenv("LOGLEVEL", "DEBUG"))
     # logger.debug(f"Saxon Processor:  {saxon_processor.version}")
 
-    file: str = os.getenv(
-        "FILE", "licitacionesPerfilesContratanteCompleto3.atom"
-    )
     file_location: str = os.getenv("FILE_LOCATION", "WEB")
-    prefix_url: Optional[str] = os.getenv("PREFIX_URL")
-    prefix_path: Optional[str] = os.getenv("PREFIX_PATH")
+    url: str = os.getenv("PREFIX_URL","https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3")
+    prefix_path: str = url.rsplit("/", 1)[-1]
+    prefix_url = url.rsplit("/", 1)[-2]
+    file: str = f"{prefix_path}.atom"
+
     contractor_ids: list[str] = os.getenv("ENTRY_CONTRACTOR_IDS","").split(",")
     dir3_ids: list[str] = os.getenv("ENTRY_DIR3_IDS","").split(",")
+    cif_ids: list[str] = os.getenv("ENTRY_CIF_IDS","").split(",")
     doc_updated_after: datetime = datetime.fromisoformat(os.getenv("DOC_UPDATED_AFTER",""))
 
     try: 
@@ -429,7 +437,7 @@ if __name__ == "__main__":
         csv_writer.writerow(["ID_PLATAFORMA","DIR3","Contract Folder Id","CPV","Title","Date","Total Amount","Id","URI","Tender Name/Document Hash/Filename", "# Tender Accepted", "# Tender Excluded", "# Tender Other"])         
         for doc in atom_doc:
             logger.debug(f"Searching in file: {doc.file_name}")
-            doc_entries: list[CspEntry] = doc.search_entry(contractor_ids, dir3_ids)
+            doc_entries: list[CspEntry] = doc.search_entry(contractor_ids, dir3_ids, cif_ids)
             for entry in doc_entries:
                 if entry.id is not None and entry.id not in entry_ids:
                     entry_ids.append(entry.id)

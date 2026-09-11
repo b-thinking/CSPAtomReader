@@ -3,11 +3,11 @@
 
 ## Introducción
 
-Este script procesa las licitaciones publicadas en la plataforma de contratación del sector público. 
+Este script procesa las licitaciones publicadas en la plataforma de contratación del sector público PLACSP.
 
 Para ello procesa los datos abiertos según se indica en la plataforma [Datos Abiertos](https://contrataciondelestado.es/wps/portal/plataforma/datos_abiertos/!ut/p/z1/04_Sj9CPykssy0xPLMnMz0vMAfIjo8ziTVz9nZ3dPIwMLIKNXQyMfFxCQ808gFx3U_1wsAJTY2eTMK-wALNgT3cDA08PNxefUENTA3cjM_0oYvQb4ACOBsTpx6MgCr_x4fpR-K0wgirA50VClhTkhoZGGGR6AgA3hHJw/dz/d5/L2dJQSEvUUt3QS80TmxFL1o2XzhONThBQjFBME83OUQwUTNGOTQ2TlBQVDg3/)
 
-Por otro lado, los datos abiertos los publica el ministerio de hacienda, en el portal [Licitaciones publicadas en la Plataforma de Contratación del Sector Público](https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/licitaciones_plataforma_contratacion.aspx). En este portal se publican 6 juegos de datos distintos. Este script se ha probado con [Licitaciones publicadas en los perfiles del contratante ubicados en la Plataforma de Contratación del Sector Público, excluyendo los contratos menores](https://www.hacienda.gob.es/es-es/gobiernoabierto/datos%20abiertos/paginas/licitacionescontratante.aspx) pero técnicamente se debe poder usar con cualquiera de los otros 5 juego de datos.
+Por otro lado, los datos abiertos los publica el Ministerio de Hacienda, en el portal [Licitaciones publicadas en la Plataforma de Contratación del Sector Público](https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/licitaciones_plataforma_contratacion.aspx). En este portal se publican 6 juegos de datos distintos. Este script se ha probado con [Licitaciones publicadas en los perfiles del contratante ubicados en la Plataforma de Contratación del Sector Público, excluyendo los contratos menores](https://www.hacienda.gob.es/es-es/gobiernoabierto/datos%20abiertos/paginas/licitacionescontratante.aspx) pero técnicamente se debe poder usar con cualquiera de los otros 5 juego de datos.
 
 En el portal de [Datos Abiertos](https://contrataciondelestado.es/wps/portal/plataforma/datos_abiertos/!ut/p/z1/04_Sj9CPykssy0xPLMnMz0vMAfIjo8ziTVz9nZ3dPIwMLIKNXQyMfFxCQ808gFx3U_1wsAJTY2eTMK-wALNgT3cDA08PNxefUENTA3cjM_0oYvQb4ACOBsTpx6MgCr_x4fpR-K0wgirA50VClhTkhoZGGGR6AgA3hHJw/dz/d5/L2dJQSEvUUt3QS80TmxFL1o2XzhONThBQjFBME83OUQwUTNGOTQ2TlBQVDg3/) la propia plataforma publica una herramienta denominada OpenPLACSP para poder exportar a formato Excel las licitaciones. Esta herramienta tiene dos problemas para lo que se buscaba. Por un lado publica todos los pliegos sin dejar filtro por entidad, y por otro lado no indica los documentos asociados a cada pliego, que era lo que nos interesaba. Pero es interesante que siendo una herramienta de código abierto, se puede reutilizar su código para usos posteriores (es Java, no Python).
 
@@ -15,11 +15,13 @@ Por eso se ha creado este script, que aporta
 - Se descarga en format CSV los pliegos de determinada entidad (se pueden indicar varias entidades)
 - Y para cada pliego, identifica las URLs de acceso a los documentos. Actualmente sólo indica los documentos de tipo técnico y generales (que era lo que me interesaba) pero añadir el resto (documentos legales) es trivial.
 
+
+
 ## Configuración
 
 El script procesa los pliegos publicados en formato RSS Atom publicados en [Licitaciones publicadas en los perfiles del contratante ubicados en la Plataforma de Contratación del Sector Público, excluyendo los contratos menores](https://www.hacienda.gob.es/es-es/gobiernoabierto/datos%20abiertos/paginas/licitacionescontratante.aspx)
 
-El script es código python, y se ha probado con la versión 3.12. 
+El script es código python, y se ha validado con la versión 3.12. 
 
 Si se usa pyenv para manejar entornos virtuales, se provee un script [configureEnvironment-pyenv.sh](./configureEnvironment-pyenv.sh) para configurar el entorno virtual. En este caso se debe invocar con `source configureEnvironment-pyenv.sh`.
 
@@ -31,27 +33,31 @@ La configuración se realiza mediante un fichero `.env` con las variables de ent
 
 ### Modos de operación: El script puede operar de dos maneras:
 
-- O bien trabaja con todos los ficheros descargados a un directorio local. En este caso, primero deben descargarse todos los archivos y descomprimirse en orden (del más antiguo al más nuevo). Para ello se provee el script [download_linux.py](./download_linux.sh) que descarga los ficheros y los descomprime. Este el modo recomendado si se tiene que procesar o buscar pliegos de varios meses o años. Para usar este modo se debe definir las siguientes variables en el archivo `.env`:
+- O bien trabaja con todos los ficheros descargados a un directorio local. En este caso, primero deben descargarse todos los archivos y descomprimirse en orden (del más antiguo al más nuevo). Para ello se provee el script [download.sh](./download.sh) que descarga los ficheros y los descomprime. Este el modo recomendado si se tiene que procesar o buscar pliegos de varios meses o años. Para usar este modo se debe definir las siguientes variables en el archivo `.env`:
 
   ```ini
   FILE_LOCATION="LOCAL"
-  PREFIX_PATH="<Ruta a la carpeta donde se han descomprimido los ficheros>"
-  FILE="licitacionesPerfilesContratanteCompleto3.atom"
   ```
 
 - O bien trabaja con los ficheros descargados directamente de la plataforma. En este caso se debe definir las siguientes variables en el archivo `.env`:
 
   ```ini 
   FILE_LOCATION="WEB"
-  PREFIX_URL="https://contrataciondelestado.es/sindicacion/sindicacion_643"
-  FILE="licitacionesPerfilesContratanteCompleto3.atom"
   ```
 
-  NOTA: La URL https://contrataciondelestado.es/sindicacion/sindicacion_643 es la URL de la web oficial de la plataforma de Contratación del Sector Público para el primer juego de datos
+- En ambos casos, deben definirse las variables 
+    - `PREFIX_URL`según el juego de datos que se desee descartar y procesar (el archivo `.env.sample`indican los 5 valores posibles) 
+    - `HAS_MONTHLY_FILES`que indica si se desean procesar los ficheros mensuales (true) o solo los fichero anuales (false) en la descarga a local. Este valor sólo es usado por el script `download.sh`, y actualmente debe fijarse a `true` para los tres primeros datasets y `false`para los otros dos.
+    
+    Ejemplo: 
+    ```ini
+    PREFIX_URL="https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3"
+    HAS_MONTHLY_FILES=true
+    ```
 
 ### Selección de las entidades a buscar
 
-Las entidades a seleccionar deben identificarse en el inventario de todas las [entidades registradas en la plataforma](https://contrataciondelsectorpublico.gob.es/datosabiertos/OrganosContratacion.xlsx). **ES IMPORTANTE** que dependiendo el tipo de entidad, cada entidad está identificada o por su ID en la plataforma, por su código ID3 o por su NIF. Ahora mismo, el script soporta el ID de plataforma y el DIR3 (añadir el NIF es trivial si fuera necesario). Es importante que determinadas entidades publican sus pliegos sin ID de plataforma y hay que buscarlos por DIR3 (por ejemplo, Banco de España, aunque tiene ID de plataforma, pública sus pliegos sólo con ID3)
+Las entidades a seleccionar deben identificarse en el inventario de todas las [entidades registradas en la plataforma](https://contrataciondelsectorpublico.gob.es/datosabiertos/OrganosContratacion.xlsx). **ES IMPORTANTE** que dependiendo el tipo de entidad, cada entidad está identificada o por su ID en la plataforma, por su código ID3 o por su NIF. Ahora mismo, el script soporta el ID de plataforma, el DIR3 o el CIF. NO es necesario definir los 3 para cada entidad a buscar, pero si se hace, no supone problema y nos garantiza encontrar pliegos que carezcan de alguno de los campos. Es importante que determinadas entidades publican sus pliegos sin ID de plataforma y hay que buscarlos por DIR3 (por ejemplo, Banco de España, aunque tiene ID de plataforma, pública sus pliegos sólo con ID3) o por CIF.
 
 Una vez identificadas las entidades, se pueden indicar en el archivo `.env` en las variables `ENTRY_CONTRACTOR_IDS`y/o `ENTRY_DIR3_IDS`, según se use IDs o ID3, de la siguiente manera (una única cadena separada por comas):
 
@@ -59,6 +65,7 @@ Una vez identificadas las entidades, se pueden indicar en el archivo `.env` en l
 # ADIF
 ENTRY_CONTRACTOR_IDS="4051681009106,1000017000091,4051701009108,4001664000272,4051581009080,4051601009082,5034741006576,5055461009728,4001667000272,1000017000094,1000017000094,4001663000272,1000017000092,1000017000008,1000017000008,1000017000092,1000017000091,1000017000092,1000017000092,4001662000272,1000017000093,1000017000093,1000017000093,1000017000091,1001010000091,1000017000094,1000017000095,1000017000095,1000017000095,1000017000095,1000017000091,1000017000091,1000017000092,1000017000092,1000017000092,1000017000094,1000017000094,1000017000094,1000017000094,1000017000095,1000017000093,1000017000095,1000017000095,1000017000095,4001661000272,1000017000095,1000017000091,1000017000091,4001666000272,1000017000093,1000017000093,4001668000272,4001665000272,1000017000093,1000017000093,1000017000094,4051702009108,4051721009112,4051722009112,4051742009114,4051761009116,4051602009082"
 ENTRY_DIR3_IDS="EA0003338,EA0008223,EA0008352,EA0008559"
+ENTRY_CIF_IDS="Q2801660H,G28016749"
 ```
 
 
@@ -156,3 +163,30 @@ Ejemplo de salida:
 - [Español](https://www.hacienda.gob.es/DGPatrimonio/SGCCRC/RCSP/cpv2008.xls)
 - [Europe](https://ted.europa.eu/en/simap/cpv)
 
+## Plataformas de contratación autonómicas
+**IMPORTANTE**: A nivel autonómico existen plataformas adicionales de contratación que dan servicio a entidades de ámbito autonómico. La plataforma estatal NO tiene por qué contener estos pliegos de contratación (hay que determinar si están agregando los datos o no a PLACSP). En su caso, estas plataformas añaden sus datos al segundo juego de datos (Datos Agregados) pero no se garantiza que estén (consúltese cada caso). En el momento de comprobarlo (septiembre/2026) SALVO ERROR U OMISIÓN
+- [Andalucía](https://www.juntadeandalucia.es/temas/contratacion-publica.html) -> **NO** agrega los datos a PLACSP
+- [Aragón](https://www.aragon.es/plataforma-de-contratacion-del-sector-publico) -> Usa plataforma PLACSP
+    - [Portal de transparencia](https://www.aragon.es/transparencia/gestion-fondos-publicos/contratos-publicos)
+    - [Open Data](https://opendata.aragon.es/catalogo/contratos-gobierno-de-aragon)
+- [Prindcipado de Asturias](https://miprincipado.asturias.es/-/licitacion-y-contratacion-publica-electronica) -> Agrega los datos a PLACSP
+    - [Portal de transparencia](https://transparencia.asturias.es/economica/contratacion)
+- [Illes Baleares](https://www.caib.es/sites/contractaciopublica/es/inici/) -> Agrega los datos a PLACSP
+- [Canarias](https://www.gobiernodecanarias.org/hacienda/contratacion/Contratacion_Publica/) -> Agrega los datos a PLACSP
+- [Cantabria](https://transparencia.cantabria.es/contratacion-publica) -> Usa plataforma PLACSP
+    - [Portal de transparencia](https://transparencia.cantabria.es/contratacion-publica) 
+- [Castilla y León](https://contratacion.jcyl.es/web/es/contratacion-administrativa.html) -> Agrega los datos a PLACSP
+- [Castilla-La Mancha](https://contratacion.castillalamancha.es/) -> Usa plataforma PLACSP
+- [Cataluña](https://contractaciopublica.cat/) -> Agrega los datos a PLACSP
+    - [Portal de transparencia](https://analisi.transparenciacatalunya.cat/es/Economia/Contractaci-p-blica-a-Catalunya-publicacions-a-la-/ybgg-dgi6/data_preview)
+- [Comunitat Valenciana](https://hisenda.gva.es/es/web/subsecretaria/contratacion) -> Usa plataforma PLACSP con servicios propios
+    - [Portal de transparencia](https://gvaoberta.gva.es/es)
+- [Extremadura](https://www.juntaex.es/temas/empresas/contratacion-publica) -> Usa plataforma PLACSP
+- [Galicia](https://www.contratosdegalicia.gal) -> Agrega los datos a PLACSP
+- [Comunidad de Madrid](https://contratos-publicos.comunidad.madrid/) -> Agrega los datos a PLACSP
+- [Región de Murcia](https://www.carm.es/web/pagina?IDCONTENIDO=709&IDTIPO=140) -> **NO** agrega los datos a PLACSP pero mantiene sincronizados 
+- [Comunidad Foral de Navarra](https://portalcontratacion.navarra.es/es/) -> **NO** agrega los datos a PLACSP
+- [País Vasco](https://www.contratacion.euskadi.eus/) -> Agrega los datos a PLACSP
+- [La Rioja](https://www.larioja.org/contratacion-publica/es) -> Agrega los datos a PLACSP
+- [Ciudad Autónoma de Ceuta]
+- [Ciudad Autónoma de Melilla]
