@@ -55,12 +55,14 @@ class CspEntry:
     :param entry: Atom entry containing the contract
     """
 
-    def __init__(self, entry: etree.Element, id_plataforma: Optional[str] = None, dir3: Optional[str] = None) -> None:
+    def __init__(self, entry: etree.Element, id_plataforma: Optional[str] = None, dir3: Optional[str] = None, cif: Optional[str] = None) -> None:
         self.entry: etree.Element = entry
         if id_plataforma is not None:
             self._id_plataforma = id_plataforma
         if dir3 is not None:
             self._dir3 = dir3
+        if cif is not None:
+            self._cif = cif
     @property
     def id(self) -> Optional[str]:
         if not hasattr(self, "_id"):
@@ -104,7 +106,19 @@ class CspEntry:
             list = self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)
             self._dir3: Optional[str] = list[0] if list and len(list) > 0 else None
         return self._dir3
-    
+
+    @property
+    def cif(self) -> Optional[str]:
+        if not hasattr(self, "_cif"):
+            xpath: str = """
+                cac-place-ext:ContractFolderStatus/cac-place-ext:LocatedContractingParty/
+                cac:Party/cac:PartyIdentification/
+                cbc:ID[@schemeName='NIF']/
+                text()
+                """
+            list = self.entry.xpath(xpath,namespaces=NAMESPACE_MAP)
+            self._cif: Optional[str] = list[0] if list and len(list) > 0 else None
+        return self._cif
     
     @property
     def cpv(self) -> Optional[str]:
@@ -311,7 +325,7 @@ class CspDoc:
             if found is not None:
                 node: etree.Element
                 for node in found:
-                    entry = CspEntry(node, id_plataforma=id_plataforma, dir3=dir3)
+                    entry = CspEntry(node, id_plataforma=id_plataforma, dir3=dir3, cif=cif)
                     logger.debug(f"Contractor Id: {entry.id_plataforma} - Contract Folder Id {entry.contract_folder_id} - CPV: {entry.cpv} - Title: {entry.title} - Updated {entry.updated.isoformat() if entry.updated is not None else 'N/A'} - Total Amount {entry.total_amount:,.2f}")
                     logger.debug(entry.technical_docs)
                     csp_entries.append(entry)
@@ -434,20 +448,20 @@ if __name__ == "__main__":
         entry_ids: list[str] = []
         total_entries: int = 0
         csv_writer = csv.writer(sys.stdout, quoting=csv.QUOTE_NONNUMERIC)
-        csv_writer.writerow(["ID_PLATAFORMA","DIR3","Contract Folder Id","CPV","Title","Date","Total Amount","Id","URI","Tender Name/Document Hash/Filename", "# Tender Accepted", "# Tender Excluded", "# Tender Other"])         
+        csv_writer.writerow(["ID_PLATAFORMA","DIR3","CIF","Contract Folder Id","CPV","Title","Date","Total Amount","Id","URI","Tender Name/Document Hash/Filename", "# Tender Accepted", "# Tender Excluded", "# Tender Other"])         
         for doc in atom_doc:
             logger.debug(f"Searching in file: {doc.file_name}")
             doc_entries: list[CspEntry] = doc.search_entry(contractor_ids, dir3_ids, cif_ids)
             for entry in doc_entries:
                 if entry.id is not None and entry.id not in entry_ids:
                     entry_ids.append(entry.id)
-                    csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),entry.total_amount,entry.id,entry.link,entry.tender_name, entry.tender_accepted_count, entry.tender_excluded_count, entry.tender_other_count])
+                    csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.cif,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),entry.total_amount,entry.id,entry.link,entry.tender_name, entry.tender_accepted_count, entry.tender_excluded_count, entry.tender_other_count])
                     for technical_doc in entry.technical_docs:
-                        csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"TechnicalDoc:",technical_doc[0],technical_doc[1],technical_doc[2]])
+                        csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.cif,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"TechnicalDoc:",technical_doc[0],technical_doc[1],technical_doc[2]])
                     for additional_doc in entry.additional_docs:
-                        csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"AdditionalDoc:",additional_doc[0],additional_doc[1],additional_doc[2]])
+                        csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.cif,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"AdditionalDoc:",additional_doc[0],additional_doc[1],additional_doc[2]])
                     for general_doc in entry.general_docs:
-                        csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"GeneralDoc:",general_doc[0],general_doc[1],general_doc[2]])
+                        csv_writer.writerow([entry.id_plataforma,entry.dir3,entry.cif,entry.contract_folder_id,entry.cpv,entry.title,(entry.updated.isoformat() if entry.updated is not None else "N/A"),"GeneralDoc:",general_doc[0],general_doc[1],general_doc[2]])
 
             total_entries += len(doc_entries)
 
